@@ -11,7 +11,7 @@ export default function Footer() {
   ];
 
   return (
-    <footer className="relative mt-32 w-full flex justify-center px-6 pb-10">
+    <footer className="relative mt-12 w-full flex justify-center px-6 pb-10">
       
       {/* Outer Glass Container */}
       <div className="w-full max-w-8xl bg-black/60 backdrop-blur-xl border border-white/10 rounded-3xl shadow-xl p-12">

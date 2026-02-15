@@ -1,35 +1,26 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
 import Navbar from "./components/layout/Navbar";
-import Footer from './components/layout/Footer';
+import Footer from "./components/layout/Footer";
+import HeroSection from "./components/layout/HeroSection";
+import EventSection from "./components/layout/EventSection";
+import TeamSection from "./components/layout/TeamSection";
 
-
-function App() {
-  const [count, setCount] = useState(0)
-
+export default function App() {
   return (
     <div className="min-h-screen flex flex-col bg-[#0d0d0d] text-white">
 
-      {/* Fixed Navbar */}
       <div className="fixed top-6 w-full z-50 flex justify-center">
         <Navbar />
       </div>
 
-      {/* Spacer for Fixed Navbar Height */}
       <div className="h-24"></div>
 
-      {/* Main Content */}
-      <main className="flex-1 px-8">
-        <h1>Page Content</h1>
+      <main className="flex-1">
+        <HeroSection />
+        <EventSection />
+        <TeamSection />
       </main>
 
-      {/* Footer */}
       <Footer />
-
     </div>
   );
 }
-
-export default App
