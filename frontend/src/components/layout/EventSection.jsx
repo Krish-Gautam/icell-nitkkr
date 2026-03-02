@@ -12,81 +12,152 @@ export default function EventSection() {
     "https://images.unsplash.com/photo-1556761175-4b46a572b786?w=400&q=80",
   ];
 
- const cardOffsets = [
-  {
-    x: -200,
-    y: -140,
-    rotate: -8,
-    hover: { x: -260, y: -100, rotate: -16 }
-  },
-  {
-    x: -160,
-    y: -160,
-    rotate: -4,
-    hover: { x: -170, y: -190, rotate: -6 }
-  },
-  {
-    x: -120,
-    y: -160,
-    rotate: 4,
-    hover: { x: -90, y: -190, rotate: 6 }
-  },
-  {
-    x: -80,
-    y: -140,
-    rotate: 8,
-    hover: { x: -10, y: -100, rotate: 16 }
-  }
-];
+  const cardOffsets = [
+    {
+      x: -200,
+      y: -140,
+      rotate: -8,
+      hover: { x: -260, y: -100, rotate: -16 }
+    },
+    {
+      x: -160,
+      y: -160,
+      rotate: -4,
+      hover: { x: -170, y: -190, rotate: -6 }
+    },
+    {
+      x: -120,
+      y: -160,
+      rotate: 4,
+      hover: { x: -90, y: -190, rotate: 6 }
+    },
+    {
+      x: -80,
+      y: -140,
+      rotate: 8,
+      hover: { x: -10, y: -100, rotate: 16 }
+    }
+  ];
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.12,
+        delayChildren: 0.1,
+      },
+    },
+  };
 
+  const itemVariants = {
+    hidden: { opacity: 0, y: 30 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: { duration: 0.7, ease: "easeOut" },
+    },
+  };
 
   return (
-    <section className="min-h-screen bg-zinc-950 px-6 py-24 overflow-hidden">
-      <div className="max-w-6xl mx-auto">
+    <section className="relative min-h-screen bg-black px-6 py-24 overflow-hidden">
+
+      <div className="max-w-6xl mx-auto relative z-10">
         <div className="grid md:grid-cols-2 gap-12 md:gap-16 items-center min-h-[70vh]">
-          {/* Left: Society text - light animation to avoid first-load lag */}
+          {/* Left: Society text - staggered entrance animation */}
           <motion.div
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            transition={{ duration: 0.4, ease: "easeOut" }}
-            viewport={{ once: true, margin: "0px" }}
+            initial="hidden"
+            whileInView="visible"
+            variants={containerVariants}
+            viewport={{ once: true, margin: "-100px" }}
             className="order-2 md:order-1"
           >
-            <h2 className="text-4xl md:text-5xl font-bold text-yellow-400 tracking-tight">
+            {/* Small badge above title */}
+            <motion.div
+              variants={itemVariants}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-yellow-500/10 border border-yellow-500/20 mb-4"
+            >
+              <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
+              <span className="text-yellow-400/90 text-xs font-medium tracking-wider uppercase">
+                Flagship Event
+              </span>
+            </motion.div>
+
+            <motion.h2
+              variants={itemVariants}
+              className="text-5xl md:text-6xl font-bold bg-yellow-500 bg-clip-text text-transparent tracking-tight"
+            >
               InnoKshetra
-            </h2>
-            <p className="text-white/90 mt-6 text-lg leading-relaxed">
+            </motion.h2>
+
+            <motion.p
+              variants={itemVariants}
+              className="text-white/90 mt-6 text-lg leading-relaxed"
+            >
               Our flagship innovation event where minds collide, ideas ignite,
               and startups are born. Innovation Cell NIT Kurukshetra brings together
               students, mentors, and industry leaders to turn ideas into impact.
-            </p>
-            <p className="text-white/60 mt-4 text-base leading-relaxed">
+            </motion.p>
+
+            <motion.p
+              variants={itemVariants}
+              className="text-white/60 mt-4 text-base leading-relaxed"
+            >
               From hackathons and workshops to speaker sessions and networking,
               we build a culture of creativity and problem-solving. Join us to
               learn, build, and lead the next wave of innovation.
-            </p>
+            </motion.p>
+
             <motion.div
-              initial={{ opacity: 0 }}
-              whileInView={{ opacity: 1 }}
-              viewport={{ once: true, margin: "0px" }}
-              transition={{ duration: 0.35, delay: 0.1, ease: "easeOut" }}
+              variants={itemVariants}
               className="mt-8 flex flex-wrap gap-3"
             >
-              <span className="px-4 py-2 rounded-full bg-white/5 border border-white/10 text-white/80 text-sm">
-                Hackathons
-              </span>
-              <span className="px-4 py-2 rounded-full bg-white/5 border border-white/10 text-white/80 text-sm">
-                Workshops
-              </span>
-              <span className="px-4 py-2 rounded-full bg-white/5 border border-white/10 text-white/80 text-sm">
-                Speaker Sessions
-              </span>
+              {["Hackathons", "Workshops", "Speaker Sessions"].map((tag, i) => (
+                <motion.span
+                  key={tag}
+                  whileHover={{ scale: 1.05, y: -2 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="px-4 py-2 rounded-full bg-white/5 border border-white/10 text-white/80 text-sm hover:bg-white/10 hover:border-yellow-500/30 transition-all duration-300 cursor-default"
+                >
+                  {tag}
+                </motion.span>
+              ))}
+            </motion.div>
+
+            {/* Call to action button */}
+            <motion.div variants={itemVariants} className="mt-10">
+              <motion.button
+                whileHover={{ scale: 1.02, boxShadow: "0 0 30px rgba(250, 204, 21, 0.3)" }}
+                whileTap={{ scale: 0.98 }}
+                className="group relative px-8 py-3.5 rounded-full bg-yellow-400 text-zinc-950 font-semibold text-sm overflow-hidden transition-all duration-300"
+              >
+                <span className="relative z-10 flex items-center gap-2">
+                  Explore Events
+                  <motion.span
+                    animate={{ x: [0, 4, 0] }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                  >
+                    →
+                  </motion.span>
+                </span>
+                <motion.div
+                  className="absolute inset-0 bg-yellow-500"
+                  initial={{ x: "100%" }}
+                  whileHover={{ x: 0 }}
+                  transition={{ duration: 0.3 }}
+                />
+              </motion.button>
             </motion.div>
           </motion.div>
 
-          {/* Right: Four-pic folder / card stack - no entrance animation to avoid first-load lag */}
-          <div className="relative order-1 md:order-2 flex justify-center md:justify-end items-center min-h-[320px] md:min-h-[380px]">
+          {/* Right: Four-pic folder / card stack with entrance animation */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, ease: "easeOut" }}
+            viewport={{ once: true, margin: "-100px" }}
+            className="relative order-1 md:order-2 flex justify-center md:justify-end items-center min-h-[320px] md:min-h-[380px]"
+          >
             <div
               className="relative w-[280px] h-[340px] md:w-[320px] md:h-[380px] cursor-pointer"
               onMouseEnter={() => setStackHover(true)}
@@ -113,7 +184,8 @@ export default function EventSection() {
                     initial="rest"
                     animate={stackHover ? "hover" : "rest"}
                     transition={{ duration: 0.22, ease: [0.25, 0.1, 0.25, 1] }}
-                    className="absolute w-[85%] h-[85%] rounded-2xl overflow-hidden border-2 border-white/10 shadow-xl origin-center"
+                    whileHover={{ scale: 1.02 }}
+                    className="absolute w-[85%] h-[85%] rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl origin-center backdrop-blur-sm"
                     style={{
                       left: "50%",
                       top: "50%",
@@ -122,6 +194,9 @@ export default function EventSection() {
                       pointerEvents: "none",
                       zIndex: stackHover ? index + 10 : index,
                       willChange: "transform",
+                      boxShadow: stackHover
+                        ? "0 20px 60px rgba(0,0,0,0.5), 0 0 20px rgba(250, 204, 21, 0.2)"
+                        : "0 10px 40px rgba(0,0,0,0.3)",
                     }}
                   >
                     <img
@@ -133,11 +208,13 @@ export default function EventSection() {
                       loading="lazy"
                       decoding="async"
                     />
+
+                    
                   </motion.div>
                 </div>
               ))}
             </div>
-          </div>
+          </motion.div>
         </div>
       </div>
     </section>
