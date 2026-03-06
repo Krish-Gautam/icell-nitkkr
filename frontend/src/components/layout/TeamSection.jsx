@@ -3,15 +3,22 @@ import { Linkedin, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 
 export default function TeamSection() {
-  const team = [
-    { name: "President", person: "Vansh", image: "", linkedin: "#" },
-    { name: "Vice President", person: "Riya Mehta", image: "", linkedin: "#" },
-    { name: "Tech Head", person: "Naveen Beniwal", image: "", linkedin: "#" },
-    { name: "Tech Head", person: "Naveen Beniwal", image: "", linkedin: "#" },
-    { name: "Tech Head", person: "Naveen Beniwal", image: "", linkedin: "#" },
-    { name: "Tech Head", person: "Naveen Beniwal", image: "", linkedin: "#" },
-    { name: "Tech Head", person: "Naveen Beniwal", image: "", linkedin: "#" },
-  ];
+
+  const [team, setTeam] = useState([])
+
+  useEffect(() => {
+
+    const fetchTeam = async () => {
+
+      const res = await fetch("http://localhost:5000/teams")
+      const data = await res.json()
+      console.log(data)
+      setTeam(data)
+    }
+
+    fetchTeam()
+
+  }, [])
 
   const [hoveredIndex, setHoveredIndex] = useState(null);
   const tripleTeam = [...team, ...team, ...team];
@@ -95,8 +102,8 @@ export default function TeamSection() {
                   <div className="relative mx-auto w-40 h-40 mb-5">
                     <div className="relative w-full h-full rounded-full overflow-hidden border-2 border-yellow-400/40">
                       <img
-                        src={member.image || `https://api.dicebear.com/7.x/avataaars/svg?seed=${member.person}`}
-                        alt={member.person}
+                        src={member.image || `https://api.dicebear.com/7.x/avataaars/svg?seed=${member.position}`}
+                        alt={member.name}
                         className="w-full h-full object-cover group-hover:shadow-lg transition-shadow duration-500"
                       />
                     </div>
@@ -105,10 +112,10 @@ export default function TeamSection() {
                   {/* Name & role */}
                   <div className="text-center space-y-2">
                     <h3 className="text-xl font-bold text-white group-hover:text-yellow-400 transition-colors duration-300">
-                      {member.person}
+                      {member.name}
                     </h3>
                     <p className="text-yellow-400/80 text-sm font-medium tracking-wide uppercase">
-                      {member.name}
+                      {member.position}
                     </p>
                   </div>
 
