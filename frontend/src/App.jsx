@@ -1,24 +1,7 @@
-// import { BrowserRouter, Routes, Route } from "react-router-dom";
-// import Home from "./pages/home";
-
-
-// export default function App() {
-//   return (
-//     <BrowserRouter>
-//       <Routes>
-//         <Route path="/" element={<Home />} />
-//       </Routes>
-//     </BrowserRouter>
-//   );
-// }
-
-
-
-
-
 import { useState } from "react";
 import { BrowserRouter, Routes, Route, Outlet, Navigate } from "react-router-dom";
 
+import EventsPage from "./pages/EventsPage";
 import Navbar from "./components/layout/Navbar";
 import Footer from "./components/layout/Footer";
 import HeroSection from "./components/layout/HeroSection";
@@ -123,6 +106,22 @@ return ( <BrowserRouter> <Routes>
         </div>
       }
     />
+     
+     {/* Events page */}
+      <Route
+      path="/events"
+      element={
+        <div className="min-h-screen flex flex-col bg-[#0d0d0d] text-white">
+          <div className="fixed top-6 w-full z-50 flex justify-center">
+            <Navbar />
+          </div>
+
+          <EventsPage />
+        </div>
+      }
+    />
+
+
 
     {/* Admin Routes */}
     <Route path="/admin" element={<AdminLayout />}>
