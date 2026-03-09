@@ -13,7 +13,7 @@ const CATEGORIES = [
 
 export default function BlogFilter({ activeCategory, onCategoryChange }) {
   return (
-    <div className="flex flex-wrap gap-4">
+    <div className="flex flex-wrap gap-4 ">
       {CATEGORIES.map((cat) => {
         const isActive = activeCategory === cat;
 
@@ -29,6 +29,7 @@ export default function BlogFilter({ activeCategory, onCategoryChange }) {
               transition-all duration-300
               shadow-[4px_8px_19px_-3px_rgba(0,0,0,0.27)]
               group
+              cursor-pointer
               ${isActive 
                 ? "bg-[#212121] text-[#e8e8e8]" 
                 : "bg-[#e8e8e8] text-[#212121]"
