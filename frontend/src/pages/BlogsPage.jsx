@@ -1,8 +1,8 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import BlogCard from "../components/blog/BlogCard";
 import BlogFilter from "../components/blog/BlogFilter";
+import { useEffect } from "react";
 import Footer from "../components/layout/Footer";
 
 // ── Mock Data ──────────────────────────────────────────────────────────────────
@@ -10,8 +10,10 @@ const MOCK_BLOGS = [
   {
     id: 1,
     title: "What is Positive Pay System and how does it work?",
-    description: "Understand how the Positive Pay System adds an extra layer of security to cheque transactions in banking.",
-    image: "https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=475&h=290&fit=crop",
+    description:
+      "Understand how the Positive Pay System adds an extra layer of security to cheque transactions in banking.",
+    image:
+      "https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=475&h=290&fit=crop",
     category: "Finance",
     author: "Arjun Sharma",
     date: "Feb 2026",
@@ -21,99 +23,18 @@ const MOCK_BLOGS = [
   },
   {
     id: 2,
-    title: "How to choose the right interest payout frequency for your Fixed Deposits?",
-    description: "Monthly, quarterly, or at maturity — picking the right FD payout schedule can significantly impact your returns.",
-    image: "https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?w=475&h=290&fit=crop",
+    title:
+      "How to choose the right interest payout frequency for your Fixed Deposits?",
+    description:
+      "Monthly, quarterly, or at maturity — picking the right FD payout schedule can significantly impact your returns.",
+    image:
+      "https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?w=475&h=290&fit=crop",
     category: "Technology",
     author: "Priya Menon",
     date: "Feb 2026",
     status: "approved",
     content: `## The Main Difference: Growth vs. Income\n\nBefore you book a Fixed Deposit, ask yourself one question: Will I need the money now, or later?`,
     links: ["https://www.dcbbank.com"],
-  },
-  {
-    id: 3,
-    title: "7 Ways to Improve the Security of Your Mobile Banking App",
-    description: "From biometric locks to two-factor authentication, here's how you can keep your mobile banking safe from threats.",
-    image: "https://images.unsplash.com/photo-1563986768609-322da13575f3?w=475&h=290&fit=crop",
-    category: "Technology",
-    author: "Startup",
-    date: "Dec 2025",
-    status: "approved",
-    content: `## Why Mobile Banking Security Matters\n\nWith over 500 million mobile banking users in India, cybercriminals are more active than ever.`,
-    links: [],
-  },
-  {
-    id: 4,
-    title: "Features and Benefits of DCB WOW Rupay Platinum Debit Card",
-    description: "Explore the exciting rewards, cashback offers, and lifestyle privileges that come with the WOW Rupay Platinum Debit Card.",
-    image: "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=475&h=290&fit=crop",
-    category: "Finance",
-    author: "Sanya Kapoor",
-    date: "Nov 2025",
-    status: "approved",
-    content: `## What is the DCB WOW Rupay Platinum Debit Card?\n\nA feature-packed debit card designed for customers who want more from their everyday banking.`,
-    links: [],
-  },
-  {
-    id: 5,
-    title: "Top Reasons Why You Should Switch to Mobile Banking",
-    description: "Discover why millions of Indians are ditching traditional banking for the convenience of mobile banking apps.",
-    image: "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=475&h=290&fit=crop",
-    category: "Finance",
-    author: "Vikram Iyer",
-    date: "Dec 2025",
-    status: "approved",
-    content: `## The Mobile Banking Revolution in India\n\nIndia now has over 500 million smartphone users.`,
-    links: [],
-  },
-  {
-    id: 6,
-    title: "Benefits of Gold Loan: Unlocking Value from Your Gold",
-    description: "Gold sitting idle? Learn how to unlock its financial potential with a gold loan and get quick liquidity.",
-    image: "https://images.unsplash.com/photo-1610375461246-83df859d849d?w=475&h=290&fit=crop",
-    category: "Finance",
-    author: "Deepa Nair",
-    date: "Dec 2025",
-    status: "approved",
-    content: `## What is a Gold Loan?\n\nA gold loan is a secured loan where you pledge your gold jewellery as collateral.`,
-    links: [],
-  },
-  {
-    id: 7,
-    title: "A Checklist to Ensure Timely GST Return Filing and Payment",
-    description: "Never miss a GST deadline again. Use this comprehensive checklist to stay compliant every quarter.",
-    image: "https://images.unsplash.com/photo-1554224154-26032ffc0d07?w=475&h=290&fit=crop",
-    category: "Finance",
-    author: "Ankit Gupta",
-    date: "Aug 2025",
-    status: "approved",
-    content: `## Why GST Compliance Matters\n\nMissing a GST deadline means late fees, interest charges, and potential notices.`,
-    links: ["https://www.gst.gov.in"],
-  },
-  {
-    id: 8,
-    title: "Money Transfer Tips for Indian Students Studying Abroad",
-    description: "Save on fees and get better exchange rates with these practical money transfer tips for students abroad.",
-    image: "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=475&h=290&fit=crop",
-    category: "Startup",
-    author: "Meera Pillai",
-    date: "Nov 2025",
-    status: "approved",
-    content: `## The Challenge of Sending Money Abroad\n\nFor Indian students studying abroad, receiving money from home can be expensive.`,
-    links: ["https://wise.com", "https://rbi.org.in"],
-  },
-  {
-    id: 9,
-    title: "RBI Repo Rate Reforms: Does it Affect Fixed Deposit Interest Rate?",
-    description: "Every time the RBI changes the repo rate, FD investors take notice. Here's what it actually means for your deposits.",
-    image: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=475&h=290&fit=crop",
-    category: "Startup",
-    author: "Kabir Bose",
-    date: "Feb 2026",
-    status: "approved",
-    content: `## What is the Repo Rate?\n\nThe repo rate is the rate at which the RBI lends money to commercial banks.`,
-    links: ["https://rbi.org.in"],
   },
 ];
 
@@ -140,7 +61,7 @@ function BlogSlider({ blogs, onCardClick }) {
         {Array.from({
           length: Math.max(
             0,
-            visible - blogs.slice(startIdx, startIdx + visible).length
+            visible - blogs.slice(startIdx, startIdx + visible).length,
           ),
         }).map((_, i) => (
           <div key={`empty-${i}`} />
@@ -232,6 +153,17 @@ function SectionTitle({ title }) {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function BlogsPage() {
   const navigate = useNavigate();
+  const [blogs, setBlogs] = useState([]);
+
+  useEffect(() => {
+    const fetchBlog = async () => {
+      const res = await fetch("http://localhost:5000/api/blogs");
+      const data = await res.json();
+      setBlogs(data);
+    };
+
+    fetchBlog();
+  }, []);
 
   // ── CHANGE 1: Use "All" as default to match BlogFilter's first category ──
   const [activeCategory, setActiveCategory] = useState("All");
@@ -240,19 +172,25 @@ export default function BlogsPage() {
   // Blogs with categories not in BlogFilter (like "Cyber Security") won't appear
   // under category filter but WILL still appear in "All", "Recent", "Popular" sections.
   // If you want them hidden everywhere, filter MOCK_BLOGS itself at the top.
-  const BLOGFILTER_CATEGORIES = ["All", "Finance", "Technology", "Startup", "Design"];
+  const BLOGFILTER_CATEGORIES = [
+    "All",
+    "Finance",
+    "Technology",
+    "Startup",
+    "Design",
+  ];
 
   const filteredBlogs =
     activeCategory === "All"
-      ? MOCK_BLOGS
-      : MOCK_BLOGS.filter((b) => b.category === activeCategory);
+      ? blogs
+      : blogs.filter((b) => b.category === activeCategory);
 
   const handleCardClick = (blog) => {
     navigate(`/blog/${blog.id}`);
   };
 
-  const recentBlogs = [...MOCK_BLOGS].slice(0, 6);
-  const popularBlogs = [...MOCK_BLOGS].slice(2, 8);
+  const recentBlogs = [...blogs].slice(0, 6);
+  const popularBlogs = [...blogs].slice(2, 8);
 
   // ── CHANGE 3: Section categories now match BlogFilter exactly ──
   // Removed "Cyber Security" — only Finance, Technology, Startup, Design
@@ -379,12 +317,7 @@ export default function BlogsPage() {
               >
                 <span className="absolute inset-0 w-0 bg-[#212121] rounded-[15px] transition-all duration-300 group-hover:w-full z-0" />
                 <span className="relative z-10 flex items-center gap-2 group-hover:text-[#e8e8e8] transition-colors duration-300">
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 16 16"
-                    fill="none"
-                  >
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
                     <path
                       d="M12 2L14 4L6 12H4V10L12 2Z"
                       stroke="currentColor"
@@ -493,7 +426,7 @@ export default function BlogsPage() {
           {/* ── CHANGE 5: Sections now only show Finance/Technology/Startup/Design ── */}
           {/* Removed "Cyber Security" to match BlogFilter categories exactly ── */}
           {SECTION_CATEGORIES.map((cat) => {
-            const catBlogs = MOCK_BLOGS.filter((b) => b.category === cat);
+            const catBlogs = blogs.filter((b) => b.category === cat);
             if (catBlogs.length === 0) return null;
             return (
               <section key={cat} style={{ marginBottom: "56px" }}>
@@ -506,7 +439,6 @@ export default function BlogsPage() {
       )}
 
       <div style={{ height: "60px" }} />
-      
     </div>
   );
 }

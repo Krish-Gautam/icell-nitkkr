@@ -11,8 +11,7 @@ export default function TeamSection() {
     const fetchTeam = async () => {
 
       const res = await fetch("http://localhost:5000/teams")
-      const data = await res.json()
-      console.log(data)
+      const data = await res.json();
       setTeam(data)
     }
 
