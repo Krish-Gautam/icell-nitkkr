@@ -2,6 +2,7 @@ import { useState } from "react";
 import { BrowserRouter, Routes, Route, Outlet, Navigate } from "react-router-dom";
 
 import EventsPage from "./pages/EventsPage";
+import NewsletterPage from "./pages/NewsletterPage";
 import Navbar from "./components/layout/Navbar";
 import Footer from "./components/layout/Footer";
 import HeroSection from "./components/layout/HeroSection";
@@ -121,7 +122,19 @@ return ( <BrowserRouter> <Routes>
       }
     />
 
+      {/* Newsletter page */}
+      <Route
+      path="/newsletter"
+      element={
+        <div className="min-h-screen flex flex-col bg-[#0d0d0d] text-white">
+          <div className="fixed top-6 w-full z-50 flex justify-center">
+            <Navbar />
+          </div>
 
+          <NewsletterPage />
+        </div>
+      }
+    />
 
     {/* Admin Routes */}
     <Route path="/admin" element={<AdminLayout />}>
