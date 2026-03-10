@@ -1,44 +1,106 @@
+
+
+
+
+
+
+
+
+
+
+
+
 import React, { useState } from "react";
 import supabase from "../../services/supabaseClient";
-import { Mail, Lock, User, ShieldCheck, Users, Briefcase } from "lucide-react";
+import { Mail, Lock, ShieldCheck, Users } from "lucide-react";
 
 const Login = () => {
-  const [role, setRole] = useState("member"); // 'member', 'leader', 'admin'
-  const [formData, setFormData] = useState({
-    email: "",
-    password: "",
-  });
+  const [role, setRole] = useState("member");
+  const [formData, setFormData] = useState({ email: "", password: "" });
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const roles = [
-    { id: "member", label: "Member", icon: Users },
-    { id: "admin", label: "Admin", icon: ShieldCheck },
+    { id: "member", label: "Member",  icon: Users       },
+    { id: "admin",  label: "Admin",   icon: ShieldCheck  },
   ];
 
-  const handleChange = (e) => {
+  const handleChange = (e) =>
     setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+
+  // const handleSubmit = async (e) => {
+  //   e.preventDefault();
+  //   setError("");
+  //   setLoading(true);
+
+  //   const { data, error } = await supabase.auth.signInWithPassword({
+  //     email:    formData.email,
+  //     password: formData.password,
+  //   });
+
+  //   setLoading(false);
+
+  //   if (error) {
+  //     setError(error.message);
+  //     return;
+  //   }
+
+  //   // ✅ Save token so WriteBlogPage and AdminBlogs can use it
+  //   localStorage.setItem("access_token", data.session.access_token);
+  //   // ✅ Save user info optionally
+  //   localStorage.setItem("user_id",    data.user.id);
+  //   localStorage.setItem("user_email", data.user.email);
+
+  //   console.log("Login success — token saved");
+
+  //   // Redirect based on role selection
+  //   // Note: actual role is in profiles table, not just the toggle
+  //   // For now redirect admin to /admin/blogs, members to /
+  //   if (role === "admin") {
+  //     window.location.href = "/admin/blogs";
+  //   } else {
+  //     window.location.href = "/";
+  //   }
+  // };
+
+
+
+
+
+
+
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+  e.preventDefault()
+  setError("")
+  setLoading(true)
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: formData.email,
-      password: formData.password,
-    });
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email:    formData.email,
+    password: formData.password,
+  })
 
-    if (error) {
-      console.error(error.message);
-      return;
-    }
+  setLoading(false)
 
-    console.log("Login success", data);
+  if (error) {
+    setError(error.message)
+    return
+  }
 
-    // Redirect immediately to home
-    setTimeout(() => {
-      window.location.href = "/";
-    }, 800);
-  };
+  // ✅ These 3 lines are the critical fix
+  localStorage.setItem("access_token", data.session.access_token)
+  localStorage.setItem("user_id",      data.user.id)
+  localStorage.setItem("user_email",   data.user.email)
 
+  // ✅ Verify it saved correctly
+  console.log("Token saved to localStorage:", localStorage.getItem("access_token") ? "✓ YES" : "✗ NO")
+
+  if (role === "admin") {
+    window.location.href = "/admin/blogs"
+  } else {
+    window.location.href = "/"
+  }
+}
   return (
     <div className="min-h-screen flex items-center justify-center bg-black px-4 py-12">
       <div className="w-full max-w-md space-y-8 bg-black/40 backdrop-blur-xl p-8 rounded-3xl border border-white/10 shadow-2xl">
@@ -51,7 +113,7 @@ const Login = () => {
           </p>
         </div>
 
-        {/* Role Selection Tabs */}
+        {/* Role tabs */}
         <div className="flex p-1 bg-white/5 rounded-2xl border border-white/5 gap-1">
           {roles.map((r) => {
             const Icon = r.icon;
@@ -72,6 +134,13 @@ const Login = () => {
             );
           })}
         </div>
+
+        {/* Error banner */}
+        {error && (
+          <div className="px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+            {error}
+          </div>
+        )}
 
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4">
@@ -107,41 +176,29 @@ const Login = () => {
             <div className="flex items-center">
               <input
                 id="remember-me"
-                name="remember-me"
                 type="checkbox"
                 className="h-4 w-4 text-yellow-500 focus:ring-yellow-400 border-white/10 rounded bg-white/5"
               />
-              <label
-                htmlFor="remember-me"
-                className="ml-2 block text-sm text-white/60"
-              >
+              <label htmlFor="remember-me" className="ml-2 block text-sm text-white/60">
                 Remember me
               </label>
             </div>
-
-            <div className="text-sm">
-              <a
-                href="#"
-                className="font-medium text-yellow-400 hover:text-yellow-300 transition-colors"
-              >
-                Forgot password?
-              </a>
-            </div>
+            <a href="#" className="text-sm font-medium text-yellow-400 hover:text-yellow-300 transition-colors">
+              Forgot password?
+            </a>
           </div>
 
           <button
             type="submit"
-            className="group cursor-pointer relative w-full flex justify-center py-3.5 px-4 border border-transparent text-sm font-bold rounded-2xl text-black bg-yellow-400 hover:bg-yellow-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-400 transition-all duration-300"
+            disabled={loading}
+            className="group cursor-pointer relative w-full flex justify-center py-3.5 px-4 border border-transparent text-sm font-bold rounded-2xl text-black bg-yellow-400 hover:bg-yellow-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-400 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Sign in as {role.charAt(0).toUpperCase() + role.slice(1)}
+            {loading ? "Signing in…" : `Sign in as ${role.charAt(0).toUpperCase() + role.slice(1)}`}
           </button>
 
           <p className="text-center text-sm text-white/60">
             Don't have an account?{" "}
-            <a
-              href="/register"
-              className="text-yellow-400 font-medium hover:text-yellow-300"
-            >
+            <a href="/register" className="text-yellow-400 font-medium hover:text-yellow-300">
               Register now
             </a>
           </p>
