@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import supabase from "../../services/supabaseClient";
 import { Mail, Lock, User, ShieldCheck, Users, Briefcase } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const Login = () => {
   const [role, setRole] = useState("member"); // 'member', 'leader', 'admin'
@@ -8,6 +9,8 @@ const Login = () => {
     email: "",
     password: "",
   });
+
+  const navigate = useNavigate();
 
   const roles = [
     { id: "member", label: "Member", icon: Users },
@@ -34,9 +37,7 @@ const Login = () => {
     console.log("Login success", data);
 
     // Redirect immediately to home
-    setTimeout(() => {
-      window.location.href = "/";
-    }, 800);
+    navigate("/");
   };
 
   return (

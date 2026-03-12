@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Home from "./pages/home";
 import Navbar from "./components/layout/Navbar";
 import Footer from "./components/layout/Footer";
+import ProtectedAdminRoute from "./components/admin/ProtectedAdminRoutes";
 import BlogsPage from "./pages/BlogsPage";
 import WriteBlogPage from "./pages/WriteBlogPage";
 import BlogDetailPage from "./pages/BlogDetailPage";
@@ -96,12 +97,14 @@ export default function App() {
           <Route path="/register" element={<Register />} />
 
           {/* Admin Routes */}
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/admin/blogs" element={<AdminBlogs />} />
-          <Route path="/admin/newsletters" element={<AdminNewsletters />} />
-          <Route path="/admin/teams" element={<AdminTeams />} />
-          <Route path="/admin/events" element={<AdminEvents />} />
-          <Route path="/admin/gallery" element={<AdminGallery />} />
+          <Route element={<ProtectedAdminRoute />}>
+            <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/admin/blogs" element={<AdminBlogs />} />
+            <Route path="/admin/newsletters" element={<AdminNewsletters />} />
+            <Route path="/admin/teams" element={<AdminTeams />} />
+            <Route path="/admin/events" element={<AdminEvents />} />
+            <Route path="/admin/gallery" element={<AdminGallery />} />
+          </Route>
         </Routes>
       </BrowserRouter>
     </AuthProvider>
