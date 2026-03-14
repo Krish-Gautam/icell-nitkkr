@@ -1,332 +1,788 @@
-import { useState, useRef } from "react";
 
-const initialEvents = [
-  {
-    id: 1,
-    name: "Hackathon 2025",
-    date: "Mar 28, 2025",
-    description: "36-hour coding marathon with prizes worth ₹50,000",
-    status: "upcoming",
-    participants: [
-      { id: 1, name: "Rahul Sharma", email: "rahul@college.edu", certificate: null },
-      { id: 2, name: "Aman Verma", email: "aman@college.edu", certificate: "cert_aman.pdf" },
-      { id: 3, name: "Priya Mehta", email: "priya@college.edu", certificate: null },
-    ],
-  },
-  {
-    id: 2,
-    name: "WebDev Workshop",
-    date: "Mar 15, 2025",
-    description: "Full-stack web development workshop for beginners",
-    status: "upcoming",
-    participants: [
-      { id: 4, name: "Sneha Roy", email: "sneha@college.edu", certificate: null },
-    ],
-  },
-  {
-    id: 3,
-    name: "Open Source Sprint",
-    date: "Feb 10, 2025",
-    description: "Contribute to open source projects over 2 days",
-    status: "completed",
-    participants: [
-      { id: 5, name: "Karan Gupta", email: "karan@college.edu", certificate: "cert_karan.pdf" },
-      { id: 6, name: "Ananya Singh", email: "ananya@college.edu", certificate: "cert_ananya.pdf" },
-    ],
-  },
-];
+// frontend/src/pages/AdminEvents.jsx
+import { useState, useRef, useEffect } from "react";
 
+const API = import.meta.env.VITE_API_URL ?? "";
+
+// ─── Auth helpers ─────────────────────────────────────────────────────────────
+function getToken() {
+  try {
+    const raw = localStorage.getItem("sb-session");
+    if (raw) {
+      const p = JSON.parse(raw);
+      const t = p?.access_token ?? p?.session?.access_token;
+      if (t) return t;
+    }
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith("sb-") && key.endsWith("-auth-token")) {
+        const val = localStorage.getItem(key);
+        if (!val) continue;
+        const p = JSON.parse(val);
+        const t = p?.access_token ?? p?.session?.access_token ?? p?.currentSession?.access_token;
+        if (t) return t;
+      }
+    }
+    return null;
+  } catch { return null; }
+}
+
+function authHeaders(extra = {}) {
+  return { Authorization: `Bearer ${getToken() ?? ""}`, ...extra };
+}
+
+async function safeJson(res) {
+  const text = await res.text();
+  try { return JSON.parse(text); } catch {
+    throw new Error(res.ok ? "Non-JSON response." : `Server ${res.status}: ${text.slice(0, 200)}`);
+  }
+}
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+const STATUS_CFG = {
+  "Upcoming":          { bg: "rgba(14,165,233,0.12)", fg: "#0ea5e9", border: "rgba(14,165,233,0.25)" },
+  "Registration Open": { bg: "rgba(168,85,247,0.12)", fg: "#a855f7", border: "rgba(168,85,247,0.25)" },
+  "Completed":         { bg: "rgba(16,185,129,0.12)", fg: "#10b981", border: "rgba(16,185,129,0.25)" },
+};
+
+const EMPTY_FORM = {
+  title: "", subtitle: "", description: "", long_description: "",
+  tag: "Finance Event", tag_color: "yellow", accent_color: "yellow",
+  status: "Upcoming", prize_pool: "", format: "Team-based (2–4 members)",
+  rounds: "3 Elimination Rounds", duration: "Full Day Event",
+  venue: "NIT Kurukshetra", tags: "",
+};
+
+// ─── UI Atoms ─────────────────────────────────────────────────────────────────
+function Badge({ status }) {
+  const c = STATUS_CFG[status] ?? STATUS_CFG["Upcoming"];
+  return (
+    <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold"
+      style={{ background: c.bg, color: c.fg, border: `1px solid ${c.border}` }}>
+      {status}
+    </span>
+  );
+}
+
+function Field({ label, children }) {
+  return (
+    <div className="flex flex-col gap-1">
+      {label && <label className="text-xs font-medium" style={{ color: "#666" }}>{label}</label>}
+      {children}
+    </div>
+  );
+}
+
+function Input({ label, ...props }) {
+  return (
+    <Field label={label}>
+      <input {...props}
+        className="px-3 py-2 rounded-lg text-sm text-white placeholder:text-[#444] focus:outline-none"
+        style={{ background: "#1a1a1a", border: "1px solid #2a2a2a" }}
+      />
+    </Field>
+  );
+}
+
+function Textarea({ label, ...props }) {
+  return (
+    <Field label={label}>
+      <textarea {...props}
+        className="px-3 py-2 rounded-lg text-sm text-white placeholder:text-[#444] focus:outline-none resize-none"
+        style={{ background: "#1a1a1a", border: "1px solid #2a2a2a" }}
+      />
+    </Field>
+  );
+}
+
+function Select({ label, children, ...props }) {
+  return (
+    <Field label={label}>
+      <select {...props}
+        className="px-3 py-2 rounded-lg text-sm text-white focus:outline-none"
+        style={{ background: "#1a1a1a", border: "1px solid #2a2a2a" }}
+      >
+        {children}
+      </select>
+    </Field>
+  );
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+// Fetch participant list and return count of those with a certificate
+async function fetchCertCount(eventId) {
+  try {
+    const res  = await fetch(`${API}/api/events/${eventId}/participants`, { headers: authHeaders() });
+    const data = await safeJson(res);
+    if (!Array.isArray(data)) return 0;
+    return data.filter(p => p.certificate_url).length;
+  } catch { return 0; }
+}
+
+// ─── Create Event Modal ───────────────────────────────────────────────────────
+function CreateEventModal({ onClose, onCreated }) {
+  const [form, setForm]           = useState(EMPTY_FORM);
+  const [imageFile, setImageFile] = useState(null);
+  const [saving, setSaving]       = useState(false);
+  const [error, setError]         = useState("");
+  const imageRef                  = useRef();
+
+  const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
+
+  async function submit() {
+    if (!form.title.trim()) return setError("Title is required.");
+    setSaving(true); setError("");
+    try {
+      const res  = await fetch(`${API}/api/events`, {
+        method: "POST",
+        headers: authHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          ...form,
+          tags: form.tags ? form.tags.split(",").map(t => t.trim()).filter(Boolean) : [],
+        }),
+      });
+      const data = await safeJson(res);
+      if (!res.ok) throw new Error(data.error ?? "Create failed.");
+
+      if (imageFile) {
+        const fd = new FormData();
+        fd.append("image", imageFile);
+        await fetch(`${API}/api/events/${data.id}/image`, {
+          method: "POST", headers: authHeaders(), body: fd,
+        });
+      }
+      onCreated(); onClose();
+    } catch (err) { setError(err.message); }
+    finally { setSaving(false); }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.88)", backdropFilter: "blur(8px)" }}
+      onClick={onClose}>
+      <div className="w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-2xl p-8 space-y-5"
+        style={{ background: "#0f0f0f", border: "1px solid #222" }}
+        onClick={e => e.stopPropagation()}>
+
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-bold text-white">Create New Event</h2>
+          <button onClick={onClose} className="text-[#555] hover:text-white text-xl">✕</button>
+        </div>
+
+        {error && (
+          <p className="text-xs rounded-lg px-3 py-2"
+            style={{ background: "rgba(248,113,113,0.1)", color: "#f87171", border: "1px solid rgba(248,113,113,0.2)" }}>
+            {error}
+          </p>
+        )}
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="col-span-2">
+            <Input label="Title *" value={form.title} onChange={set("title")} placeholder="e.g. BidBizz 2026" />
+          </div>
+          <Input label="Subtitle" value={form.subtitle} onChange={set("subtitle")} placeholder="e.g. Finance Simulation" />
+          <Select label="Status" value={form.status} onChange={set("status")}>
+            <option>Upcoming</option>
+            <option>Registration Open</option>
+            <option>Completed</option>
+          </Select>
+          <div className="col-span-2">
+            <Textarea label="Short Description" rows={2} value={form.description} onChange={set("description")}
+              placeholder="One-liner shown on the card" />
+          </div>
+          <div className="col-span-2">
+            <Textarea label="Long Description" rows={3} value={form.long_description} onChange={set("long_description")}
+              placeholder="Full detail shown in the modal" />
+          </div>
+          <Input label="Tag"        value={form.tag}        onChange={set("tag")}        placeholder="Finance Event" />
+          <Select label="Accent Color" value={form.accent_color} onChange={set("accent_color")}>
+            <option value="yellow">Yellow</option>
+            <option value="purple">Purple</option>
+          </Select>
+          <Input label="Prize Pool" value={form.prize_pool} onChange={set("prize_pool")} placeholder="₹25,000" />
+          <Input label="Format"     value={form.format}     onChange={set("format")}     placeholder="Team-based (2–4)" />
+          <Input label="Rounds"     value={form.rounds}     onChange={set("rounds")}     placeholder="3 Elimination Rounds" />
+          <Input label="Duration"   value={form.duration}   onChange={set("duration")}   placeholder="Full Day Event" />
+          <Input label="Venue"      value={form.venue}      onChange={set("venue")}      placeholder="NIT Kurukshetra" />
+          <Input label="Tags (comma-separated)" value={form.tags} onChange={set("tags")} placeholder="Finance, Strategy" />
+        </div>
+
+        <Field label="Event Image (optional)">
+          <input ref={imageRef} type="file" accept="image/*" className="hidden"
+            onChange={e => setImageFile(e.target.files[0])} />
+          <button type="button" onClick={() => imageRef.current.click()}
+            className="px-4 py-2 rounded-lg text-xs text-left font-medium"
+            style={{ background: "#1a1a1a", color: "#888", border: "1px solid #2a2a2a" }}>
+            {imageFile ? `📷 ${imageFile.name}` : "📷 Choose image…"}
+          </button>
+        </Field>
+
+        <div className="flex gap-3 pt-2">
+          <button onClick={submit} disabled={saving}
+            className="flex-1 py-2.5 rounded-lg text-sm font-bold text-black disabled:opacity-60"
+            style={{ background: "#facc15" }}>
+            {saving ? "Creating…" : "Create Event"}
+          </button>
+          <button onClick={onClose}
+            className="px-6 py-2.5 rounded-lg text-sm font-semibold"
+            style={{ background: "#1a1a1a", color: "#666", border: "1px solid #2a2a2a" }}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Participants Side Drawer ─────────────────────────────────────────────────
+function ParticipantsDrawer({ event, onClose, onCertCountChange }) {
+  const [participants, setParticipants] = useState([]);
+  const [loading, setLoading]           = useState(true);
+  const [uploadStatus, setUploadStatus] = useState({});
+  const certRef                         = useRef();
+  const [certTargetId, setCertTargetId] = useState(null);
+
+  async function load() {
+    setLoading(true);
+    try {
+      const res  = await fetch(`${API}/api/events/${event.id}/participants`, { headers: authHeaders() });
+      const data = await safeJson(res);
+      const list = Array.isArray(data) ? data : [];
+      setParticipants(list);
+      // Notify parent of current cert count so Generate button state stays in sync
+      onCertCountChange?.(list.filter(p => p.certificate_url).length);
+    } finally { setLoading(false); }
+  }
+
+  useEffect(() => { load(); }, [event.id]);
+
+  async function manualUpload(file, pid) {
+    setUploadStatus(s => ({ ...s, [pid]: "Uploading…" }));
+    try {
+      const fd = new FormData();
+      fd.append("certificate", file);
+      const res  = await fetch(`${API}/api/events/${event.id}/participants/${pid}/certificate`, {
+        method: "POST", headers: authHeaders(), body: fd,
+      });
+      const data = await safeJson(res);
+      if (!res.ok) throw new Error(data.error ?? "Upload failed.");
+      setUploadStatus(s => ({ ...s, [pid]: "✅ Done" }));
+      load();
+    } catch (err) {
+      setUploadStatus(s => ({ ...s, [pid]: `❌ ${err.message}` }));
+    }
+  }
+
+  async function remove(pid) {
+    if (!confirm("Remove this participant?")) return;
+    await fetch(`${API}/api/events/${event.id}/participants/${pid}`, {
+      method: "DELETE", headers: authHeaders(),
+    });
+    load();
+  }
+
+  const certCount = participants.filter(p => p.certificate_url).length;
+  const total     = participants.length;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-end"
+      style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)" }}
+      onClick={onClose}>
+      <div className="h-full w-full max-w-lg flex flex-col overflow-hidden"
+        style={{ background: "#0d0d0d", borderLeft: "1px solid #1f1f1f" }}
+        onClick={e => e.stopPropagation()}>
+
+        <div className="px-6 py-5 flex items-center justify-between sticky top-0 z-10"
+          style={{ background: "#0d0d0d", borderBottom: "1px solid #1f1f1f" }}>
+          <div>
+            <h3 className="text-white font-bold text-base">{event.title}</h3>
+            <p className="text-xs mt-0.5" style={{ color: "#555" }}>
+              {total} participants · {certCount}/{total} certs generated
+            </p>
+          </div>
+          <button onClick={onClose} className="text-xl" style={{ color: "#555" }}>✕</button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+          {loading ? (
+            <p className="text-center py-16 text-sm" style={{ color: "#444" }}>Loading…</p>
+          ) : participants.length === 0 ? (
+            <div className="text-center py-16">
+              <p className="text-sm" style={{ color: "#444" }}>No participants yet.</p>
+              <p className="text-xs mt-1" style={{ color: "#333" }}>Import a CSV file to add participants.</p>
+            </div>
+          ) : participants.map(p => (
+            <div key={p.id} className="rounded-xl p-4 flex items-start justify-between gap-3"
+              style={{ background: "#111", border: "1px solid #1f1f1f" }}>
+              <div className="flex-1 min-w-0">
+                <p className="text-white text-sm font-semibold truncate">{p.name}</p>
+                <p className="text-xs mt-0.5 truncate" style={{ color: "#555" }}>
+                  {p.email ?? "—"} · Roll: <span className="text-yellow-500">{p.roll_number ?? "—"}</span>
+                </p>
+                {p.certificate_url ? (
+                  <span className="inline-block mt-1.5 px-2 py-0.5 rounded text-xs font-medium"
+                    style={{ background: "rgba(16,185,129,0.12)", color: "#10b981", border: "1px solid rgba(16,185,129,0.25)" }}>
+                    ✓ Certificate generated
+                  </span>
+                ) : (
+                  <span className="inline-block mt-1.5 px-2 py-0.5 rounded text-xs font-medium"
+                    style={{ background: "rgba(255,255,255,0.04)", color: "#555", border: "1px solid #222" }}>
+                    No cert yet
+                  </span>
+                )}
+                {uploadStatus[p.id] && (
+                  <p className="text-xs mt-1"
+                    style={{ color: uploadStatus[p.id].startsWith("✅") ? "#10b981" : "#f87171" }}>
+                    {uploadStatus[p.id]}
+                  </p>
+                )}
+              </div>
+              <div className="flex flex-col gap-1.5 items-end shrink-0">
+                <button
+                  onClick={() => { setCertTargetId(p.id); certRef.current.value = ""; certRef.current.click(); }}
+                  className="text-xs px-2.5 py-1 rounded-lg font-medium"
+                  style={{ background: "rgba(168,85,247,0.12)", color: "#a855f7", border: "1px solid rgba(168,85,247,0.25)" }}>
+                  Upload cert
+                </button>
+                <button onClick={() => remove(p.id)}
+                  className="text-xs px-2.5 py-1 rounded-lg font-medium"
+                  style={{ background: "rgba(248,113,113,0.1)", color: "#f87171", border: "1px solid rgba(248,113,113,0.2)" }}>
+                  Remove
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <input ref={certRef} type="file" accept="application/pdf" className="hidden"
+        onChange={e => { if (e.target.files[0] && certTargetId) manualUpload(e.target.files[0], certTargetId); }} />
+    </div>
+  );
+}
+
+// ─── Per-Event Card ───────────────────────────────────────────────────────────
+function EventCard({ event, onRefresh, onViewParticipants }) {
+  const [csvStatus,  setCsvStatus]  = useState("");
+  const [genStatus,  setGenStatus]  = useState("");
+  const [sendStatus, setSendStatus] = useState("");
+  const [generating, setGenerating] = useState(false);
+  const [importing,  setImporting]  = useState(false);
+  const [sending,    setSending]    = useState(false);
+  const [imgBusy,    setImgBusy]    = useState(false);
+
+  // Track whether certs have been generated for this event
+  // We determine this by checking if at least one participant has a certificate_url
+  const [certCount,    setCertCount]    = useState(null); // null = not yet checked
+  const [totalCount,   setTotalCount]   = useState(0);
+  const [certsSent,    setCertsSent]    = useState(event.certificates_sent ?? false);
+
+  // On mount, load participant cert count to set initial Generate button state
+  useEffect(() => {
+    setCertsSent(event.certificates_sent ?? false);
+    fetchCertCount(event.id).then(count => {
+      setCertCount(count);
+    });
+    // Also fetch total participant count
+    fetch(`${API}/api/events/${event.id}/participants`, { headers: authHeaders() })
+      .then(r => r.json())
+      .then(data => { if (Array.isArray(data)) setTotalCount(data.length); })
+      .catch(() => {});
+  }, [event.id, event.certificates_sent]);
+
+  const certsGenerated = certCount !== null && certCount > 0;
+
+  const csvRef   = useRef();
+  const imageRef = useRef();
+
+  // ── CSV import ──
+  async function importCsv(file) {
+    setImporting(true); setCsvStatus("Importing…");
+    try {
+      const fd = new FormData();
+      fd.append("csv", file);
+      const res  = await fetch(`${API}/api/events/${event.id}/import-participants`, {
+        method: "POST", headers: authHeaders(), body: fd,
+      });
+      const data = await safeJson(res);
+      if (!res.ok) throw new Error(data.error ?? "Import failed.");
+      setCsvStatus(`✅ ${data.message}`);
+      // Refresh total count
+      setTotalCount(prev => prev + (data.inserted ?? 0));
+      onRefresh();
+    } catch (err) { setCsvStatus(`❌ ${err.message}`); }
+    finally { setImporting(false); }
+  }
+
+  // ── Generate certs ──
+  async function generateCerts() {
+    if (certsGenerated) {
+      // Already generated — ask if they want to regenerate
+      if (!confirm(`Certificates already exist for ${certCount}/${totalCount} participants. Regenerate all? This will overwrite existing certificates.`)) return;
+    } else {
+      if (!confirm(`Generate certificates for all ${totalCount} participants of "${event.title}"?`)) return;
+    }
+
+    setGenerating(true); setGenStatus("Generating…");
+    try {
+      const res  = await fetch(`${API}/api/events/${event.id}/generate-certificates`, {
+        method: "POST", headers: authHeaders(),
+      });
+      const data = await safeJson(res);
+      if (!res.ok) throw new Error(data.error ?? "Generation failed.");
+
+      const newCount = data.generated ?? 0;
+      setCertCount(newCount);
+      setGenStatus(
+        data.failed?.length
+          ? `✅ ${data.generated} generated, ${data.failed.length} failed`
+          : `✅ ${data.generated} certificates generated`
+      );
+      onRefresh();
+    } catch (err) {
+      setGenStatus(`❌ ${err.message}`);
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  // ── Send / Revoke certs ──
+  async function toggleSend() {
+    if (!certsGenerated && !certsSent) {
+      alert("Generate certificates first before sending.");
+      return;
+    }
+
+    const confirmMsg = certsSent
+      ? `Hide certificates from participants of "${event.title}"?`
+      : `Release ${certCount} certificates to participants of "${event.title}"? Students with matching roll numbers can download their PDFs immediately.`;
+
+    if (!confirm(confirmMsg)) return;
+
+    setSending(true); setSendStatus(certsSent ? "Revoking…" : "Sending…");
+    try {
+      const endpoint = certsSent
+        ? `${API}/api/events/${event.id}/revoke-certificates`
+        : `${API}/api/events/${event.id}/send-certificates`;
+
+      const res  = await fetch(endpoint, { method: "POST", headers: authHeaders() });
+      const data = await safeJson(res);
+      if (!res.ok) throw new Error(data.error ?? "Failed.");
+
+      const nowSent = !certsSent;
+      setCertsSent(nowSent);
+      setSendStatus(nowSent
+        ? `✅ ${data.message}`
+        : `✅ Certificates hidden from participants.`
+      );
+      onRefresh();
+    } catch (err) { setSendStatus(`❌ ${err.message}`); }
+    finally { setSending(false); }
+  }
+
+  // ── Replace image ──
+  async function replaceImage(file) {
+    setImgBusy(true);
+    try {
+      const fd = new FormData();
+      fd.append("image", file);
+      const res = await fetch(`${API}/api/events/${event.id}/image`, {
+        method: "POST", headers: authHeaders(), body: fd,
+      });
+      if (!res.ok) { const d = await safeJson(res); throw new Error(d.error); }
+      onRefresh();
+    } catch (err) { alert(err.message); }
+    finally { setImgBusy(false); }
+  }
+
+  // ── Delete event ──
+  async function deleteEvent() {
+    if (!confirm(`Permanently delete "${event.title}"?`)) return;
+    const res = await fetch(`${API}/api/events/${event.id}`, {
+      method: "DELETE", headers: authHeaders(),
+    });
+    if (res.ok) onRefresh();
+    else { const d = await safeJson(res); alert(d.error); }
+  }
+
+  const fallbackImg = "https://images.unsplash.com/photo-1552664730-d307ca884978?w=700&q=80";
+
+  // ── Generate button appearance ──
+  const genBtnStyle = certsGenerated
+    ? { background: "rgba(16,185,129,0.12)", color: "#10b981", border: "1px solid rgba(16,185,129,0.3)" }
+    : { background: "rgba(168,85,247,0.12)", color: "#a855f7", border: "1px solid rgba(168,85,247,0.25)" };
+
+  const genBtnLabel = generating
+    ? "⏳ Generating…"
+    : certsGenerated
+      ? `✅ Generated (${certCount}/${totalCount}) — Regenerate?`
+      : "🎓 Generate Certificates";
+
+  // ── Send button appearance ──
+  const sendBtnStyle = certsSent
+    ? { background: "rgba(248,113,113,0.12)", color: "#f87171", border: "1px solid rgba(248,113,113,0.3)" }
+    : certsGenerated
+      ? { background: "rgba(16,185,129,0.15)", color: "#10b981", border: "1px solid rgba(16,185,129,0.4)", boxShadow: "0 0 12px rgba(16,185,129,0.1)" }
+      : { background: "rgba(255,255,255,0.04)", color: "#555", border: "1px solid #222" };
+
+  const sendBtnLabel = sending
+    ? (certsSent ? "⏳ Revoking…" : "⏳ Sending…")
+    : certsSent
+      ? "🔒 Revoke Certificates"
+      : certsGenerated
+        ? "📤 Send Certificates to Participants"
+        : "📤 Send Certificates (generate first)";
+
+  return (
+    <div className="rounded-2xl overflow-hidden flex flex-col"
+      style={{ background: "#111", border: "1px solid #1f1f1f" }}>
+
+      {/* Thumbnail */}
+      <div className="relative h-40 overflow-hidden shrink-0">
+        <img src={event.image_url ?? fallbackImg} alt={event.title}
+          className="w-full h-full object-cover" />
+        <div className="absolute inset-0"
+          style={{ background: "linear-gradient(to top, #111 0%, transparent 55%)" }} />
+        <div className="absolute top-3 left-3 flex flex-col gap-1.5">
+          <Badge status={event.status} />
+          {certsSent && (
+            <span className="px-2 py-0.5 rounded-full text-xs font-semibold"
+              style={{ background: "rgba(16,185,129,0.2)", color: "#10b981", border: "1px solid rgba(16,185,129,0.4)" }}>
+              📤 Certs Released
+            </span>
+          )}
+        </div>
+        <button
+          onClick={() => { imageRef.current.value = ""; imageRef.current.click(); }}
+          disabled={imgBusy}
+          className="absolute top-3 right-3 px-2.5 py-1 rounded-lg text-xs font-medium disabled:opacity-50"
+          style={{ background: "rgba(0,0,0,0.75)", color: "#aaa", border: "1px solid #333" }}>
+          {imgBusy ? "…" : "🖼 Replace"}
+        </button>
+        <input ref={imageRef} type="file" accept="image/*" className="hidden"
+          onChange={e => replaceImage(e.target.files[0])} />
+      </div>
+
+      {/* Content */}
+      <div className="p-5 flex flex-col gap-4 flex-1">
+        <div>
+          <h3 className="text-white font-bold text-base leading-tight">{event.title}</h3>
+          {event.subtitle && <p className="text-xs mt-0.5" style={{ color: "#666" }}>{event.subtitle}</p>}
+          {event.description && (
+            <p className="text-xs mt-2 line-clamp-2" style={{ color: "#555" }}>{event.description}</p>
+          )}
+          {event.venue && (
+            <p className="text-xs mt-1" style={{ color: "#444" }}>📍 {event.venue}</p>
+          )}
+        </div>
+
+        {/* Participant / cert counts */}
+        {totalCount > 0 && (
+          <div className="flex gap-2">
+            <span className="px-2 py-0.5 rounded text-xs font-medium"
+              style={{ background: "rgba(14,165,233,0.1)", color: "#0ea5e9", border: "1px solid rgba(14,165,233,0.2)" }}>
+              👥 {totalCount} participants
+            </span>
+            {certCount !== null && certCount > 0 && (
+              <span className="px-2 py-0.5 rounded text-xs font-medium"
+                style={{ background: "rgba(16,185,129,0.1)", color: "#10b981", border: "1px solid rgba(16,185,129,0.2)" }}>
+                🎓 {certCount} certs ready
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Prize / format */}
+        {(event.prize_pool || event.format) && (
+          <div className="flex flex-wrap gap-1.5">
+            {event.prize_pool && (
+              <span className="px-2 py-0.5 rounded text-xs font-medium"
+                style={{ background: "rgba(245,158,11,0.12)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.2)" }}>
+                🏆 {event.prize_pool}
+              </span>
+            )}
+            {event.format && (
+              <span className="px-2 py-0.5 rounded text-xs font-medium"
+                style={{ background: "rgba(14,165,233,0.12)", color: "#0ea5e9", border: "1px solid rgba(14,165,233,0.2)" }}>
+                {event.format}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* ── Action buttons ── */}
+        <div className="space-y-2 mt-auto">
+
+          {/* 1. Import CSV */}
+          <div>
+            <input ref={csvRef} type="file" accept=".csv" className="hidden"
+              onChange={e => { if (e.target.files[0]) importCsv(e.target.files[0]); }} />
+            <button
+              onClick={() => { csvRef.current.value = ""; csvRef.current.click(); }}
+              disabled={importing}
+              className="w-full py-2 px-4 rounded-lg text-xs font-semibold disabled:opacity-40"
+              style={{ background: "rgba(14,165,233,0.12)", color: "#0ea5e9", border: "1px solid rgba(14,165,233,0.25)" }}>
+              {importing ? "⏳ Importing…" : "📂 Import Participants CSV"}
+            </button>
+            {csvStatus && (
+              <p className="text-xs mt-1 px-1"
+                style={{ color: csvStatus.startsWith("✅") ? "#10b981" : "#f87171" }}>
+                {csvStatus}
+              </p>
+            )}
+          </div>
+
+          {/* 2. Generate Certificates — changes appearance after generation */}
+          <div>
+            <button
+              onClick={generateCerts}
+              disabled={generating}
+              className="w-full py-2 px-4 rounded-lg text-xs font-semibold disabled:opacity-40 transition-all"
+              style={genBtnStyle}>
+              {genBtnLabel}
+            </button>
+            {genStatus && (
+              <p className="text-xs mt-1 px-1"
+                style={{ color: genStatus.startsWith("✅") ? "#10b981" : "#f87171" }}>
+                {genStatus}
+              </p>
+            )}
+          </div>
+
+          {/* 3. Send / Revoke — locked (grey) until certs are generated */}
+          <div>
+            <button
+              onClick={toggleSend}
+              disabled={sending || (!certsGenerated && !certsSent)}
+              className="w-full py-2 px-4 rounded-lg text-xs font-bold disabled:opacity-40 transition-all"
+              style={sendBtnStyle}>
+              {sendBtnLabel}
+            </button>
+            {sendStatus && (
+              <p className="text-xs mt-1 px-1"
+                style={{ color: sendStatus.startsWith("✅") ? "#10b981" : "#f87171" }}>
+                {sendStatus}
+              </p>
+            )}
+          </div>
+
+          {/* 4. View Participants */}
+          <button
+            onClick={() => onViewParticipants(event)}
+            className="w-full py-2 px-4 rounded-lg text-xs font-semibold"
+            style={{ background: "rgba(56,189,248,0.1)", color: "#38bdf8", border: "1px solid rgba(56,189,248,0.2)" }}>
+            👥 View / Manage Participants
+          </button>
+
+          {/* 5. Delete */}
+          <button
+            onClick={deleteEvent}
+            className="w-full py-2 px-4 rounded-lg text-xs font-semibold"
+            style={{ background: "rgba(248,113,113,0.08)", color: "#f87171", border: "1px solid rgba(248,113,113,0.15)" }}>
+            🗑 Delete Event
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
 export default function AdminEvents() {
-  const [events, setEvents] = useState(initialEvents);
-  const [selectedEvent, setSelectedEvent] = useState(initialEvents[0]);
-  const [showNewEvent, setShowNewEvent] = useState(false);
-  const [showAddParticipant, setShowAddParticipant] = useState(false);
-  const [eventForm, setEventForm] = useState({ name: "", date: "", description: "" });
-  const [participantForm, setParticipantForm] = useState({ name: "", email: "" });
-  const [sendingAll, setSendingAll] = useState(false);
-  const [sent, setSent] = useState({});
-  const certRef = useRef();
-  const [certTarget, setCertTarget] = useState(null);
+  const [events,      setEvents]      = useState([]);
+  const [loading,     setLoading]     = useState(true);
+  const [showCreate,  setShowCreate]  = useState(false);
+  const [drawerEvent, setDrawerEvent] = useState(null);
 
-  const getEvent = (id) => events.find(e => e.id === id);
-  const current = getEvent(selectedEvent?.id) || events[0];
+  async function fetchEvents() {
+    setLoading(true);
+    try {
+      const res  = await fetch(`${API}/api/events`);
+      const data = await safeJson(res);
+      setEvents(Array.isArray(data) ? data : []);
+    } catch (err) { console.error(err.message); }
+    finally { setLoading(false); }
+  }
 
-  const createEvent = () => {
-    if (!eventForm.name || !eventForm.date) return;
-    const newEvent = { id: Date.now(), ...eventForm, status: "upcoming", participants: [] };
-    setEvents(prev => [...prev, newEvent]);
-    setSelectedEvent(newEvent);
-    setEventForm({ name: "", date: "", description: "" });
-    setShowNewEvent(false);
-  };
-
-  const addParticipant = () => {
-    if (!participantForm.name) return;
-    const updated = events.map(e =>
-      e.id === current.id
-        ? { ...e, participants: [...e.participants, { id: Date.now(), ...participantForm, certificate: null }] }
-        : e
-    );
-    setEvents(updated);
-    setSelectedEvent(updated.find(e => e.id === current.id));
-    setParticipantForm({ name: "", email: "" });
-    setShowAddParticipant(false);
-  };
-
-  const removeParticipant = (pId) => {
-    const updated = events.map(e =>
-      e.id === current.id
-        ? { ...e, participants: e.participants.filter(p => p.id !== pId) }
-        : e
-    );
-    setEvents(updated);
-    setSelectedEvent(updated.find(e => e.id === current.id));
-  };
-
-  const uploadCert = (pId, file) => {
-    if (!file) return;
-    const updated = events.map(e =>
-      e.id === current.id
-        ? { ...e, participants: e.participants.map(p => p.id === pId ? { ...p, certificate: file.name } : p) }
-        : e
-    );
-    setEvents(updated);
-    setSelectedEvent(updated.find(e => e.id === current.id));
-    setCertTarget(null);
-  };
-
-  const sendCertificate = (pId) => {
-    setSent(prev => ({ ...prev, [pId]: true }));
-  };
-
-  const sendAll = () => {
-    setSendingAll(true);
-    const ids = {};
-    current.participants.filter(p => p.certificate).forEach(p => { ids[p.id] = true; });
-    setTimeout(() => { setSent(prev => ({ ...prev, ...ids })); setSendingAll(false); }, 1500);
-  };
-
-  const statusColor = { upcoming: "#0ea5e9", completed: "#10b981" };
+  useEffect(() => { fetchEvents(); }, []);
 
   return (
     <div className="p-8 min-h-screen" style={{ background: "#0d0d0d" }}>
-      <input ref={certRef} type="file" accept=".pdf" className="hidden" onChange={e => certTarget && uploadCert(certTarget, e.target.files[0])} />
 
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-white" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Event Management</h1>
-          <p className="text-[#555] text-sm mt-1">Create events, manage participants and send certificates</p>
+          <h1 className="text-3xl font-bold text-white">Event Management</h1>
+          <p className="text-sm mt-1" style={{ color: "#555" }}>
+            {events.length} events · manage participants & certificates
+          </p>
         </div>
         <button
-          onClick={() => setShowNewEvent(true)}
-          className="px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2"
-          style={{ background: "linear-gradient(135deg, #a855f7, #6366f1)", color: "white" }}
-        >
-          <span>+</span> New Event
+          onClick={() => setShowCreate(true)}
+          className="px-5 py-2.5 rounded-xl text-sm font-bold text-black"
+          style={{ background: "#facc15" }}>
+          + New Event
         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Events Sidebar */}
-        <div>
-          <div className="rounded-xl border overflow-hidden" style={{ background: "#111", borderColor: "#1f1f1f" }}>
-            <div className="px-4 py-3 border-b" style={{ borderColor: "#1f1f1f" }}>
-              <p className="text-[#666] text-xs font-medium uppercase tracking-wider">Events ({events.length})</p>
-            </div>
-            {events.map(event => (
-              <div
-                key={event.id}
-                onClick={() => setSelectedEvent(event)}
-                className="px-4 py-4 cursor-pointer hover:bg-[#161616] border-b transition-colors"
-                style={{
-                  background: current?.id === event.id ? "#161616" : "transparent",
-                  borderColor: "#1f1f1f"
-                }}
-              >
-                <div className="flex items-start justify-between mb-1">
-                  <p className="text-white text-sm font-medium leading-tight">{event.name}</p>
-                  <span
-                    className="text-xs px-1.5 py-0.5 rounded-full ml-2 flex-shrink-0"
-                    style={{ background: `${statusColor[event.status]}18`, color: statusColor[event.status] }}
-                  >
-                    {event.status}
-                  </span>
-                </div>
-                <p className="text-[#555] text-xs">{event.date}</p>
-                <p className="text-[#444] text-xs mt-1">{event.participants.length} participants</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Event Details */}
-        <div className="lg:col-span-2 space-y-4">
-          {current && (
-            <>
-              {/* Event Info */}
-              <div className="rounded-xl border p-5" style={{ background: "#111", borderColor: "#1f1f1f" }}>
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <h2 className="text-white text-xl font-bold" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>{current.name}</h2>
-                    <p className="text-[#555] text-sm mt-0.5">{current.date}</p>
-                    <p className="text-[#666] text-sm mt-1">{current.description}</p>
-                  </div>
-                  <span
-                    className="text-xs px-2.5 py-1 rounded-full font-medium"
-                    style={{ background: `${statusColor[current.status]}18`, color: statusColor[current.status] }}
-                  >
-                    {current.status}
-                  </span>
-                </div>
-                <div className="flex gap-3 flex-wrap mt-4">
-                  <div className="flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg" style={{ background: "#1a1a1a" }}>
-                    <span className="text-[#666]">👥</span>
-                    <span className="text-white">{current.participants.length} Participants</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg" style={{ background: "#1a1a1a" }}>
-                    <span className="text-[#666]">🎓</span>
-                    <span className="text-white">{current.participants.filter(p => p.certificate).length} Certs uploaded</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Participants */}
-              <div className="rounded-xl border" style={{ background: "#111", borderColor: "#1f1f1f" }}>
-                <div className="px-5 py-4 border-b flex items-center justify-between" style={{ borderColor: "#1f1f1f" }}>
-                  <h3 className="text-white font-semibold" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Participants</h3>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={sendAll}
-                      disabled={sendingAll || current.participants.filter(p => p.certificate).length === 0}
-                      className="px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-40 flex items-center gap-1"
-                      style={{ background: "rgba(16,185,129,0.12)", color: "#10b981" }}
-                    >
-                      {sendingAll ? "Sending..." : "📧 Send All Certs"}
-                    </button>
-                    <button
-                      onClick={() => setShowAddParticipant(true)}
-                      className="px-3 py-1.5 rounded-lg text-xs font-medium"
-                      style={{ background: "rgba(168,85,247,0.12)", color: "#a855f7" }}
-                    >
-                      + Add
-                    </button>
-                  </div>
-                </div>
-                <div className="divide-y" style={{ borderColor: "#1f1f1f" }}>
-                  {current.participants.map(p => (
-                    <div key={p.id} className="px-5 py-4 flex items-center gap-4 hover:bg-[#161616] transition-colors">
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center text-sm font-bold flex-shrink-0">
-                        {p.name.charAt(0)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-white text-sm font-medium">{p.name}</p>
-                        <p className="text-[#555] text-xs">{p.email}</p>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        {p.certificate ? (
-                          <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "rgba(16,185,129,0.12)", color: "#10b981" }}>
-                            📄 {p.certificate}
-                          </span>
-                        ) : (
-                          <button
-                            onClick={() => { setCertTarget(p.id); certRef.current.click(); }}
-                            className="text-xs px-2 py-1 rounded-lg"
-                            style={{ background: "#1a1a1a", color: "#666", border: "1px solid #2a2a2a" }}
-                          >
-                            Upload Cert
-                          </button>
-                        )}
-                        {p.certificate && (
-                          <button
-                            onClick={() => sendCertificate(p.id)}
-                            disabled={sent[p.id]}
-                            className="text-xs px-2 py-1 rounded-lg disabled:opacity-50 transition-colors"
-                            style={{
-                              background: sent[p.id] ? "rgba(16,185,129,0.12)" : "rgba(14,165,233,0.12)",
-                              color: sent[p.id] ? "#10b981" : "#0ea5e9"
-                            }}
-                          >
-                            {sent[p.id] ? "✓ Sent" : "Send"}
-                          </button>
-                        )}
-                        <button
-                          onClick={() => removeParticipant(p.id)}
-                          className="text-[#333] hover:text-red-500 transition-colors text-xs"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                  {current.participants.length === 0 && (
-                    <div className="text-center py-10">
-                      <p className="text-3xl mb-2">👥</p>
-                      <p className="text-[#444] text-sm">No participants yet</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </>
-          )}
-        </div>
+      {/* Workflow banner */}
+      <div className="mb-6 rounded-xl p-4 text-xs space-y-1"
+        style={{ background: "#111", border: "1px solid #1f1f1f", color: "#555" }}>
+        <p>
+          <span className="font-semibold" style={{ color: "#aaa" }}>Certificate workflow: </span>
+          <span className="text-blue-400">1. Import CSV</span>
+          {" → "}
+          <span className="text-purple-400">2. Generate Certificates</span>
+          {" → "}
+          <span className="text-emerald-400">3. Send Certificates</span>
+          {" → "}
+          <span style={{ color: "#555" }}>Students download from Events page</span>
+        </p>
+        <p>
+          <span className="font-semibold" style={{ color: "#aaa" }}>CSV columns: </span>
+          <code className="text-yellow-400">name</code>,{" "}
+          <code className="text-yellow-400">roll_number</code>,{" "}
+          <code className="text-yellow-400">email</code>{" "}
+          <span>(email optional)</span>
+        </p>
       </div>
 
-      {/* New Event Modal */}
-      {showNewEvent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.8)" }} onClick={() => setShowNewEvent(false)}>
-          <div className="w-full max-w-md rounded-2xl p-6" style={{ background: "#111", border: "1px solid #2a2a2a" }} onClick={e => e.stopPropagation()}>
-            <h3 className="text-white font-semibold text-lg mb-5" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Create New Event</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="text-[#666] text-xs mb-1.5 block">Event Name *</label>
-                <input value={eventForm.name} onChange={e => setEventForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. AI Hackathon 2025" className="w-full px-3 py-2.5 rounded-lg text-sm text-white outline-none border" style={{ background: "#0d0d0d", borderColor: "#2a2a2a" }} />
-              </div>
-              <div>
-                <label className="text-[#666] text-xs mb-1.5 block">Event Date *</label>
-                <input type="date" value={eventForm.date} onChange={e => setEventForm(f => ({ ...f, date: e.target.value }))} className="w-full px-3 py-2.5 rounded-lg text-sm text-white outline-none border" style={{ background: "#0d0d0d", borderColor: "#2a2a2a", colorScheme: "dark" }} />
-              </div>
-              <div>
-                <label className="text-[#666] text-xs mb-1.5 block">Description</label>
-                <textarea value={eventForm.description} onChange={e => setEventForm(f => ({ ...f, description: e.target.value }))} placeholder="Brief event description..." rows={3} className="w-full px-3 py-2.5 rounded-lg text-sm text-white outline-none border resize-none" style={{ background: "#0d0d0d", borderColor: "#2a2a2a" }} />
-              </div>
-            </div>
-            <div className="flex gap-3 mt-6">
-              <button onClick={createEvent} className="flex-1 py-2.5 rounded-lg text-sm font-semibold" style={{ background: "linear-gradient(135deg, #a855f7, #6366f1)", color: "white" }}>
-                Create Event
-              </button>
-              <button onClick={() => setShowNewEvent(false)} className="px-4 py-2.5 rounded-lg text-sm" style={{ background: "#1a1a1a", color: "#666" }}>
-                Cancel
-              </button>
-            </div>
-          </div>
+      {loading ? (
+        <div className="flex justify-center py-24 text-sm" style={{ color: "#444" }}>Loading events…</div>
+      ) : events.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-24 gap-4">
+          <p className="text-sm" style={{ color: "#444" }}>No events yet.</p>
+          <button onClick={() => setShowCreate(true)}
+            className="px-5 py-2.5 rounded-xl text-sm font-bold text-black"
+            style={{ background: "#facc15" }}>
+            Create your first event
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          {events.map(event => (
+            <EventCard
+              key={event.id}
+              event={event}
+              onRefresh={fetchEvents}
+              onViewParticipants={setDrawerEvent}
+            />
+          ))}
         </div>
       )}
 
-      {/* Add Participant Modal */}
-      {showAddParticipant && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.8)" }} onClick={() => setShowAddParticipant(false)}>
-          <div className="w-full max-w-sm rounded-2xl p-6" style={{ background: "#111", border: "1px solid #2a2a2a" }} onClick={e => e.stopPropagation()}>
-            <h3 className="text-white font-semibold text-lg mb-5" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Add Participant</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="text-[#666] text-xs mb-1.5 block">Name *</label>
-                <input value={participantForm.name} onChange={e => setParticipantForm(f => ({ ...f, name: e.target.value }))} placeholder="Full Name" className="w-full px-3 py-2.5 rounded-lg text-sm text-white outline-none border" style={{ background: "#0d0d0d", borderColor: "#2a2a2a" }} />
-              </div>
-              <div>
-                <label className="text-[#666] text-xs mb-1.5 block">Email</label>
-                <input value={participantForm.email} onChange={e => setParticipantForm(f => ({ ...f, email: e.target.value }))} placeholder="email@college.edu" className="w-full px-3 py-2.5 rounded-lg text-sm text-white outline-none border" style={{ background: "#0d0d0d", borderColor: "#2a2a2a" }} />
-              </div>
-            </div>
-            <div className="flex gap-3 mt-6">
-              <button onClick={addParticipant} className="flex-1 py-2.5 rounded-lg text-sm font-semibold" style={{ background: "linear-gradient(135deg, #a855f7, #6366f1)", color: "white" }}>
-                Add Participant
-              </button>
-              <button onClick={() => setShowAddParticipant(false)} className="px-4 py-2.5 rounded-lg text-sm" style={{ background: "#1a1a1a", color: "#666" }}>
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
+      {showCreate && (
+        <CreateEventModal onClose={() => setShowCreate(false)} onCreated={fetchEvents} />
+      )}
+
+      {drawerEvent && (
+        <ParticipantsDrawer
+          event={drawerEvent}
+          onClose={() => setDrawerEvent(null)}
+          onCertCountChange={(count) => {
+            // Keep cert count in sync when drawer is open
+          }}
+        />
       )}
     </div>
   );
