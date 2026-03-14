@@ -1,8 +1,11 @@
-import express from "express"
-import { getTeams } from "../controllers/teamController.js"
 
-const router = express.Router()
 
-router.get("/", getTeams)
+import { Router } from "express";
+import { getTeams } from "../controllers/teamController.js";
 
-export default router
+const router = Router();
+
+// ── Public ────────────────────────────────────────────────────────────────────
+router.get("/", getTeams);
+
+export default router;

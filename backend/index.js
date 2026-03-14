@@ -1,90 +1,62 @@
-// import dotenv from "dotenv"
-// dotenv.config()
-
-// import express from "express"
-// import cors from "cors"
-// import helmet from "helmet"
-// import rateLimit from "express-rate-limit"
-
-// import teamRoutes from "./routes/teamRoutes.js"
-// import blogRoutes from "./routes/blogRoutes.js"
-// import authRoutes from "./routes/authRoutes.js"
 
 
-// const app = express()
+// backend/index.js
+import dotenv from "dotenv";
+dotenv.config();
 
-// app.use(helmet())
+import express from "express";
+import cors from "cors";
 
-// const limiter = rateLimit({
-//  windowMs: 15 * 60 * 1000,
-//  max: 100
-// })
+import authRoutes   from "./routes/authRoutes.js";
+import blogRoutes   from "./routes/blogRoutes.js";
+import eventsRoutes from "./routes/eventsRoutes.js";
+import teamRoutes   from "./routes/teamRoutes.js";
 
-// app.use(limiter)
+const app  = express();
+const PORT = process.env.PORT || 5000;
 
-// app.use(cors({
-//  origin: process.env.FRONTEND_URL
-// }))
-
-// app.use(express.json())
-
-// app.use("/api/auth", authRoutes)
-// app.use("/api/blogs", blogRoutes)
-// app.use("/api/auth", authRoutes)
-// app.use("/teams", teamRoutes)
-
-// app.listen(process.env.PORT,()=>{
-//  console.log(`Server running on port ${process.env.PORT}`)
-// })
-
-
-
-
-
-
-
-
-
-
-
-
-import dotenv from "dotenv"
-dotenv.config()
-
-import express from "express"
-import cors from "cors"
-import helmet from "helmet"
-import rateLimit from "express-rate-limit"
-
-import teamRoutes from "./routes/teamRoutes.js"
-import blogRoutes from "./routes/blogRoutes.js"
-import authRoutes from "./routes/authRoutes.js"
-
-const app = express()
-
-app.use(helmet())
-
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100
-})
-
-app.use(limiter)
+// ── CORS ──────────────────────────────────────────────────────────────────────
+// Allow any localhost port in development so you never hit this again
+// when Vite picks 5174, 5175, etc.
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "http://localhost:5175",
+  "http://localhost:4173", // vite preview
+  process.env.FRONTEND_URL,          // your production URL from .env
+].filter(Boolean);
 
 app.use(cors({
-  origin: process.env.FRONTEND_URL || "http://localhost:5173",
-  credentials: true
-}))
+  origin: (origin, callback) => {
+    // allow requests with no origin (curl, Postman, mobile apps)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    callback(new Error(`CORS: origin ${origin} not allowed`));
+  },
+  credentials: true,
+}));
 
-// ✅ Increase limit for base64 image uploads
-app.use(express.json({ limit: "10mb" }))
-app.use(express.urlencoded({ extended: true, limit: "10mb" }))
+app.use(express.json());
 
-// ✅ Fixed: no duplicate authRoutes, fixed /teams prefix
-app.use("/api/auth", authRoutes)
-app.use("/api/blogs", blogRoutes)
-app.use("/api/teams", teamRoutes)
+// ── Routes ────────────────────────────────────────────────────────────────────
+app.get("/api/health", (_, res) => res.json({ ok: true, ts: new Date().toISOString() }));
 
-app.listen(process.env.PORT || 5000, () => {
-  console.log(`Server running on port ${process.env.PORT || 5000}`)
-})
+app.use("/api/auth",   authRoutes);
+app.use("/api/blogs",  blogRoutes);
+app.use("/api/events", eventsRoutes);
+app.use("/api/teams",  teamRoutes);
+
+// ── 404 ───────────────────────────────────────────────────────────────────────
+app.use((req, res) => {
+  res.status(404).json({ error: `Route not found: ${req.method} ${req.path}` });
+});
+
+// ── Global error handler ──────────────────────────────────────────────────────
+app.use((err, req, res, _next) => {
+  console.error("Unhandled error:", err);
+  res.status(500).json({ error: err.message ?? "Internal server error" });
+});
+
+app.listen(PORT, () => {
+  console.log(`✅ Backend running on http://localhost:${PORT}`);
+});
