@@ -16,4 +16,4 @@ router.put("/:id", verifyAdmin, updateTeamMember)
 // admin deletes team member
 router.delete("/:id", verifyAdmin, deleteTeamMember)
 
-export default router
+export default router;

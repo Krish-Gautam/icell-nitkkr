@@ -7,6 +7,13 @@ import {
   createBlog,
   patchBlogStatus,
 } from "../controllers/blogController.js"
+import {
+  getBlogs,
+  getAllBlogsAdmin,
+  getBlogById,
+  createBlog,
+  patchBlogStatus,
+} from "../controllers/blogController.js"
 import verifyUser from "../middleware/authMiddleware.js"
 import verifyAdmin from "../middleware/adminMiddleware.js"
 
@@ -19,6 +26,7 @@ router.get("/admin/all", verifyUser, verifyAdmin, getAllBlogsAdmin)
 router.post("/", verifyUser, createBlog)
 router.patch("/:id/status", verifyUser, verifyAdmin, patchBlogStatus)
 router.get("/", getBlogs)
+router.get("/:id", getBlogById)
 router.get("/:id", getBlogById)
 
 export default router

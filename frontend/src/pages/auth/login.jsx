@@ -1,3 +1,5 @@
+
+
 import React, { useState } from "react";
 import supabase from "../../services/supabaseClient";
 import { Mail, Lock } from "lucide-react";
@@ -15,7 +17,7 @@ const Login = () => {
     setError("");
     setLoading(true);
 
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const { data, error: authError } = await supabase.auth.signInWithPassword({
       email: formData.email,
       password: formData.password,
     });
