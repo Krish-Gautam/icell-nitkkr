@@ -7,13 +7,7 @@ import {
   createBlog,
   patchBlogStatus,
 } from "../controllers/blogController.js"
-import {
-  getBlogs,
-  getAllBlogsAdmin,
-  getBlogById,
-  createBlog,
-  patchBlogStatus,
-} from "../controllers/blogController.js"
+
 import verifyUser from "../middleware/authMiddleware.js"
 import verifyAdmin from "../middleware/adminMiddleware.js"
 
