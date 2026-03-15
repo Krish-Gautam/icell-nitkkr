@@ -1,43 +1,56 @@
 import React, { useState } from "react";
 import supabase from "../../services/supabaseClient";
-import { Mail, Lock, User, ShieldCheck, Users, Briefcase } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Mail, Lock } from "lucide-react";
 
 const Login = () => {
-  const [role, setRole] = useState("member"); // 'member', 'leader', 'admin'
-  const [formData, setFormData] = useState({
-    email: "",
-    password: "",
-  });
+  const [formData, setFormData] = useState({ email: "", password: "" });
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const navigate = useNavigate();
-
-  const roles = [
-    { id: "member", label: "Member", icon: Users },
-    { id: "admin", label: "Admin", icon: ShieldCheck },
-  ];
-
-  const handleChange = (e) => {
+  const handleChange = (e) =>
     setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
+    setLoading(true);
 
     const { data, error } = await supabase.auth.signInWithPassword({
       email: formData.email,
       password: formData.password,
     });
 
+    setLoading(false);
+
     if (error) {
-      console.error(error.message);
+      setError(error.message);
       return;
     }
 
-    console.log("Login success", data);
+    // Save token and user info
+    localStorage.setItem("access_token", data.session.access_token);
+    localStorage.setItem("user_id", data.user.id);
+    localStorage.setItem("user_email", data.user.email);
 
-    // Redirect immediately to home
-    navigate("/");
+    // ✅ Check role from Supabase profiles table
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", data.user.id)
+      .single();
+
+    if (profileError) {
+      console.error("Could not fetch profile:", profileError.message);
+      window.location.href = "/";
+      return;
+    }
+
+    // ✅ Redirect based on actual role set in Supabase — not a button click
+    if (profile.role === "admin") {
+      window.location.href = "/admin/blogs";
+    } else {
+      window.location.href = "/";
+    }
   };
 
   return (
@@ -48,31 +61,16 @@ const Login = () => {
             Welcome Back
           </h2>
           <p className="mt-2 text-sm text-white/60">
-            Choose your role to continue
+            Sign in to your account
           </p>
         </div>
 
-        {/* Role Selection Tabs */}
-        <div className="flex p-1 bg-white/5 rounded-2xl border border-white/5 gap-1">
-          {roles.map((r) => {
-            const Icon = r.icon;
-            const isActive = role === r.id;
-            return (
-              <button
-                key={r.id}
-                onClick={() => setRole(r.id)}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-medium transition-all duration-300 ${
-                  isActive
-                    ? "bg-yellow-400 text-black shadow-lg shadow-yellow-400/20"
-                    : "text-white/60 hover:text-white hover:bg-white/5"
-                }`}
-              >
-                <Icon size={14} />
-                {r.label}
-              </button>
-            );
-          })}
-        </div>
+        {/* Error banner */}
+        {error && (
+          <div className="px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+            {error}
+          </div>
+        )}
 
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4">
@@ -108,41 +106,29 @@ const Login = () => {
             <div className="flex items-center">
               <input
                 id="remember-me"
-                name="remember-me"
                 type="checkbox"
                 className="h-4 w-4 text-yellow-500 focus:ring-yellow-400 border-white/10 rounded bg-white/5"
               />
-              <label
-                htmlFor="remember-me"
-                className="ml-2 block text-sm text-white/60"
-              >
+              <label htmlFor="remember-me" className="ml-2 block text-sm text-white/60">
                 Remember me
               </label>
             </div>
-
-            <div className="text-sm">
-              <a
-                href="#"
-                className="font-medium text-yellow-400 hover:text-yellow-300 transition-colors"
-              >
-                Forgot password?
-              </a>
-            </div>
+            <a href="#" className="text-sm font-medium text-yellow-400 hover:text-yellow-300 transition-colors">
+              Forgot password?
+            </a>
           </div>
 
           <button
             type="submit"
-            className="group cursor-pointer relative w-full flex justify-center py-3.5 px-4 border border-transparent text-sm font-bold rounded-2xl text-black bg-yellow-400 hover:bg-yellow-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-400 transition-all duration-300"
+            disabled={loading}
+            className="group cursor-pointer relative w-full flex justify-center py-3.5 px-4 border border-transparent text-sm font-bold rounded-2xl text-black bg-yellow-400 hover:bg-yellow-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-400 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Sign in as {role.charAt(0).toUpperCase() + role.slice(1)}
+            {loading ? "Signing in…" : "Sign In"}
           </button>
 
           <p className="text-center text-sm text-white/60">
             Don't have an account?{" "}
-            <a
-              href="/register"
-              className="text-yellow-400 font-medium hover:text-yellow-300"
-            >
+            <a href="/register" className="text-yellow-400 font-medium hover:text-yellow-300">
               Register now
             </a>
           </p>

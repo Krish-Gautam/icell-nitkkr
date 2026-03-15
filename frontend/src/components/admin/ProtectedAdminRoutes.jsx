@@ -6,15 +6,15 @@ export default function ProtectedAdminRoute() {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return <div>Loading...</div>;
+    return <div></div>;
   }
 
   if (!user) {
-    return <Navigate to="/login" />;
+    return <Navigate to="/login" replace />;
   }
 
-  if (user.role !== "admin" && user.role !== "superadmin") {
-    return <Navigate to="/" />;
+  if (!["admin", "superadmin"].includes(user.role)) {
+    return <Navigate to="/" replace />;
   }
 
   return <Outlet />;

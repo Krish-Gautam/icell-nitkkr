@@ -1,12 +1,14 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+
 import Home from "./pages/home";
+import EventsPage from "./pages/EventsPage";
+import NewsletterPage from "./pages/NewsletterPage";
 import Navbar from "./components/layout/Navbar";
 import Footer from "./components/layout/Footer";
 import ProtectedAdminRoute from "./components/admin/ProtectedAdminRoutes";
 import BlogsPage from "./pages/BlogsPage";
 import WriteBlogPage from "./pages/WriteBlogPage";
 import BlogDetailPage from "./pages/BlogDetailPage";
-import EventsPage from "./pages/EventsPage";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminBlogs from "./pages/admin/AdminBlogs";
 import AdminNewsletters from "./pages/admin/AdminNewsletters";
@@ -28,10 +30,6 @@ export default function App() {
             path="/"
             element={
               <div className="min-h-screen flex flex-col bg-[#0d0d0d] text-white">
-                <div className="fixed top-6 w-full z-50 flex justify-center">
-                  <Navbar />
-                </div>
-
                 <Home />
               </div>
             }

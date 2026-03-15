@@ -10,7 +10,7 @@ export default function TeamSection() {
 
     const fetchTeam = async () => {
 
-      const res = await fetch("http://localhost:5000/teams")
+      const res = await fetch("http://localhost:5000/api/teams")
       const data = await res.json();
       setTeam(data)
     }
