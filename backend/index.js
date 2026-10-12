@@ -29,12 +29,12 @@ const PORT = process.env.PORT || 5000;
 async function startServer() {
   try {
     await connectDB();
-    console.log("✅ Connected to MongoDB");
+    console.log("Connected to MongoDB");
 
     // Start background cleanup job for expired unverified student accounts
     startCleanupJob();
   } catch (error) {
-    console.error("❌ Failed to connect to MongoDB:", error);
+    console.error("Failed to connect to MongoDB:", error);
     process.exit(1);
   }
 
@@ -95,7 +95,7 @@ async function startServer() {
   });
 
   const server = app.listen(PORT, () => {
-    console.log(`✅ Backend running on http://localhost:${PORT}`);
+    console.log(`Backend running on http://localhost:${PORT}`);
   });
 
   // ── Graceful shutdown ─────────────────────────────────────────────────────────

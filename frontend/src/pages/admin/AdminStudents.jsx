@@ -16,13 +16,15 @@ import {
 const BRANCHES = ["CSE", "ECE", "ME", "CIVIL", "EEE", "BT"];
 const YEARS = ["1", "2", "3", "4"];
 const POSITIONS = [
-  "President",
-  "Vice President",
+  "Convener",
+  "Co-Convener",
   "Secretary",
   "Treasurer",
-  "Event Lead",
-  "Design Lead",
-  "Tech Lead",
+  "Event Coordinator",
+  "Design Head",
+  "Tech Head",
+  "Outreach Head",
+  "Management Head",
   "Member",
 ];
 
@@ -43,6 +45,8 @@ export default function AdminStudents() {
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [promotePosition, setPromotePosition] = useState("");
   const [promoteToRole, setPromoteToRole] = useState(""); // New: track target role
+  const [actionLoadingId, setActionLoadingId] = useState(null);
+  const [updatingRole, setUpdatingRole] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -80,12 +84,12 @@ export default function AdminStudents() {
         try {
           setAttendanceLoading(true);
           const studentIds = data.map((s) => s._id);
-          console.log("Sending studentIds:", studentIds);
+          // console.log("Sending studentIds:", studentIds);
           const attendanceResponse = await api.post(
             "event-attendance/students/bulk-stats",
             { studentIds }
           );
-          console.log("Attendance API Response:", attendanceResponse.data);
+          // console.log("Attendance API Response:", attendanceResponse.data);
           setAttendance(attendanceResponse.data || {});
         } catch (err) {
           console.error("Error fetching attendance:", err);
@@ -162,7 +166,8 @@ export default function AdminStudents() {
 
     try {
       await api.delete(`/students/${studentId}`);
-      fetchStudents();
+      // Remove student locally without refetching entire list
+      setStudents((prev) => prev.filter((s) => s._id !== studentId));
     } catch (err) {
       console.error("Error deleting student:", err);
       alert("Failed to delete student");
@@ -176,8 +181,11 @@ export default function AdminStudents() {
     }
 
     try {
+      setUpdatingRole(true);
       let endpoint = "";
       let data = {};
+      let nextRole = "";
+      let nextPosition = null;
 
       // Student → Member or Post Holder
       if (selectedStudent.role === "student") {
@@ -185,8 +193,10 @@ export default function AdminStudents() {
         endpoint = "/admin/students/promote";
         data.studentId = selectedStudent._id;
         data.newRole = targetRole;
+        nextRole = targetRole;
         if (targetRole === "post_holder" && promotePosition) {
           data.postPosition = promotePosition;
+          nextPosition = promotePosition;
         }
       }
       // Member → Post Holder or Student
@@ -194,11 +204,13 @@ export default function AdminStudents() {
         endpoint = "/admin/students/change-role";
         data.userId = selectedStudent._id;
         data.newRole = promoteToRole || "post_holder";
+        nextRole = promoteToRole || "post_holder";
         if (
           (promoteToRole || "post_holder") === "post_holder" &&
           promotePosition
         ) {
           data.postPosition = promotePosition;
+          nextPosition = promotePosition;
         }
       }
       // Post Holder → Member or Student
@@ -206,6 +218,11 @@ export default function AdminStudents() {
         endpoint = "/admin/students/change-role";
         data.userId = selectedStudent._id;
         data.newRole = promoteToRole || "member";
+        nextRole = promoteToRole || "member";
+        if (nextRole === "post_holder" && promotePosition) {
+          data.postPosition = promotePosition;
+          nextPosition = promotePosition;
+        }
       }
 
       if (!endpoint) {
@@ -213,18 +230,41 @@ export default function AdminStudents() {
         return;
       }
 
-      await api.post(endpoint, data);
+      const response = await api.post(endpoint, data);
+      const studentId = selectedStudent._id;
+      const finalRole = response.data?.newRole || nextRole;
+      const finalPosition =
+        response.data?.postPosition !== undefined
+          ? response.data.postPosition
+          : nextPosition;
+
+      // Update state locally without re-fetching all students from DB
+      setStudents((prev) =>
+        prev.map((s) =>
+          s._id === studentId
+            ? {
+                ...s,
+                role: finalRole,
+                post_position: finalPosition,
+                is_member:
+                  finalRole === "member" || finalRole === "post_holder",
+              }
+            : s
+        )
+      );
+
       setShowPromoteModal(false);
       setSelectedStudent(null);
       setPromotePosition("");
       setPromoteToRole("");
-      fetchStudents();
     } catch (err) {
       console.error("Error promoting student:", err);
       alert(
         "Failed to promote student: " +
           (err.response?.data?.error || err.message)
       );
+    } finally {
+      setUpdatingRole(false);
     }
   };
 
@@ -233,18 +273,34 @@ export default function AdminStudents() {
     if (!student) return;
 
     try {
+      setActionLoadingId(studentId);
       const endpoint = "/admin/students/demote";
 
       await api.post(endpoint, {
         userId: studentId,
       });
-      fetchStudents();
+
+      // Update UI state directly for this student instead of refetching all students from DB
+      setStudents((prev) =>
+        prev.map((s) =>
+          s._id === studentId
+            ? {
+                ...s,
+                role: "student",
+                is_member: false,
+                post_position: null,
+              }
+            : s
+        )
+      );
     } catch (err) {
       console.error("Error demoting student:", err);
       alert(
         "Failed to demote student: " +
           (err.response?.data?.error || err.message)
       );
+    } finally {
+      setActionLoadingId(null);
     }
   };
 
@@ -387,9 +443,9 @@ export default function AdminStudents() {
                     <th className="px-3 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-semibold text-white whitespace-nowrap">
                       Year
                     </th>
-                    <th className="px-3 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-semibold text-white whitespace-nowrap">
+                    {/* <th className="px-3 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-semibold text-white whitespace-nowrap">
                       Roll #
-                    </th>
+                    </th> */}
                     <th className="px-3 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-semibold text-white whitespace-nowrap">
                       Attend.
                     </th>
@@ -426,9 +482,9 @@ export default function AdminStudents() {
                         <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-[#555] whitespace-nowrap">
                           {student.year || "-"}
                         </td>
-                        <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-[#555] whitespace-nowrap">
+                        {/* <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-[#555] whitespace-nowrap">
                           {student.roll_number || "-"}
-                        </td>
+                        </td> */}
                         <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm">
                           {attendanceLoading ? (
                             <span className="text-[#555]">Loading...</span>
@@ -484,11 +540,18 @@ export default function AdminStudents() {
                             {student.role !== "student" && (
                               <button
                                 onClick={() => handleDemoteStudent(student._id)}
-                                className="px-2 sm:px-3 py-1 rounded-lg bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500/20 transition text-xs font-medium"
+                                disabled={actionLoadingId === student._id}
+                                className="px-2 sm:px-3 py-1 rounded-lg bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500/20 transition text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                                 title="Demote"
                               >
-                                <span className="hidden sm:inline">Demote</span>
-                                <span className="inline sm:hidden">DM</span>
+                                <span className="hidden sm:inline">
+                                  {actionLoadingId === student._id
+                                    ? "Demoting..."
+                                    : "Demote"}
+                                </span>
+                                <span className="inline sm:hidden">
+                                  {actionLoadingId === student._id ? "..." : "DM"}
+                                </span>
                               </button>
                             )}
                           </div>
@@ -901,6 +964,7 @@ export default function AdminStudents() {
                   <button
                     onClick={handlePromoteStudent}
                     disabled={
+                      updatingRole ||
                       (selectedStudent.role === "student" && !promoteToRole) ||
                       ((promoteToRole === "post_holder" ||
                         selectedStudent.role === "member") &&
@@ -910,7 +974,9 @@ export default function AdminStudents() {
                     }
                     className="flex-1 px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {selectedStudent.role === "student"
+                    {updatingRole
+                      ? "Saving..."
+                      : selectedStudent.role === "student"
                       ? "Promote"
                       : "Change Role"}
                   </button>

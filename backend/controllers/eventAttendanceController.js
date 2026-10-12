@@ -103,10 +103,10 @@ export const getBulkStudentsAttendanceStats = async (req, res) => {
   try {
     const { studentIds } = req.body;
 
-    console.log(
-      "getBulkStudentsAttendanceStats called with studentIds:",
-      studentIds
-    );
+    // console.log(
+    //   "getBulkStudentsAttendanceStats called with studentIds:",
+    //   studentIds
+    // );
 
     if (!Array.isArray(studentIds) || studentIds.length === 0) {
       return res.status(400).json({ error: "studentIds array is required" });
@@ -115,12 +115,12 @@ export const getBulkStudentsAttendanceStats = async (req, res) => {
     const { data, error } = await fetchMultipleStudentsAttendanceStats(
       studentIds
     );
-    console.log(
-      "fetchMultipleStudentsAttendanceStats returned:",
-      data,
-      "error:",
-      error
-    );
+    // console.log(
+    //   "fetchMultipleStudentsAttendanceStats returned:",
+    //   data,
+    //   "error:",
+    //   error
+    // );
     if (error) return res.status(400).json({ error: error.message });
     res.json(data);
   } catch (err) {

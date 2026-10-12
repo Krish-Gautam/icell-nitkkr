@@ -169,7 +169,7 @@ export async function fetchMultipleStudentsAttendanceStats(studentIds) {
     const results = {};
 
     for (const studentId of studentIds) {
-      console.log(`Querying attendance for studentId: ${studentId}`);
+      // console.log(`Querying attendance for studentId: ${studentId}`);
 
       // Query only records where status is actually marked (present, absent, OR leave)
       const records = await attendance
@@ -179,7 +179,7 @@ export async function fetchMultipleStudentsAttendanceStats(studentIds) {
         })
         .toArray();
 
-      console.log(`  Found ${records.length} attendance records`);
+      // console.log(`  Found ${records.length} attendance records`);
 
       const presentCount = records.filter((r) => r.status === "present").length;
       const absentCount = records.filter((r) => r.status === "absent").length;
@@ -196,7 +196,7 @@ export async function fetchMultipleStudentsAttendanceStats(studentIds) {
       };
     }
 
-    console.log("Final results:", results);
+    // console.log("Final results:", results);
     return { data: results, error: null };
   } catch (error) {
     console.error("fetchMultipleStudentsAttendanceStats error:", error);

@@ -33,10 +33,10 @@ export async function connectDB() {
     await events.createIndex({ date: 1 });
     await students.createIndex({ roll_number: 1 });
 
-    console.log("✅ Connected to MongoDB: ", MONGODB_URI);
+    console.log("Connected to MongoDB: ", MONGODB_URI);
     return db;
   } catch (error) {
-    console.error("❌ MongoDB connection failed:", error);
+    console.error("MongoDB connection failed:", error);
     throw error;
   }
 }
@@ -51,7 +51,7 @@ export function getDB() {
 export async function closeDB() {
   if (client) {
     await client.close();
-    console.log("✅ MongoDB connection closed");
+    console.log("MongoDB connection closed");
   }
 }
 
